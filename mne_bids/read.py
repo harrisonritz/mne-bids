@@ -780,6 +780,8 @@ def _handle_channels_reading(channels_fname, raw):
             "MEGGRADPLANAR",
             "MEGREFMAG",
             "MEGOTHER",
+            "EYEGAZE", # skip: variable units
+            "PUPIL", # skip: variable units
         ):
             continue
 
@@ -851,7 +853,7 @@ def _handle_channels_reading(channels_fname, raw):
             f"are missing in the raw data: {', '.join(sorted(ch_diff))}"
         )
     raw.set_channel_types(
-        channel_type_bids_mne_map_available_channels, on_unit_change="ignore"
+        channel_type_bids_mne_map_available_channels, on_unit_change="warn"
     )
 
     # Set bad channels based on _channels.tsv sidecar
@@ -1062,6 +1064,7 @@ def read_raw_bids(
 
     # Try to find an associated channels.tsv to get information about the
     # status and type of present channels
+
     channels_fname = _find_matching_sidecar(
         bids_path, suffix="channels", extension=".tsv", on_error="warn"
     )

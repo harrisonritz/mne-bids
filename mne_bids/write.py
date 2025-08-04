@@ -134,6 +134,8 @@ def _channels_tsv(raw, fname, overwrite=False):
         resp="Respiration",
         gsr="Galvanic skin response (electrodermal activity, EDA)",
         temperature="Temperature",
+        eyegaze="Eye Gaze",
+        pupil="Pupil",
     )
     get_specific = ("mag", "ref_meg", "grad")
 
@@ -910,6 +912,7 @@ def _sidecar_json(
     n_ecgchan = len([ch for ch in raw.info["chs"] if ch["kind"] == FIFF.FIFFV_ECG_CH])
     n_emgchan = len([ch for ch in raw.info["chs"] if ch["kind"] == FIFF.FIFFV_EMG_CH])
     n_miscchan = len([ch for ch in raw.info["chs"] if ch["kind"] == FIFF.FIFFV_MISC_CH])
+    n_eyechan = len([ch for ch in raw.info["chs"] if ch["kind"] == FIFF.FIFFV_EYETRACK_CH])
     n_stimchan = (
         len([ch for ch in raw.info["chs"] if ch["kind"] == FIFF.FIFFV_STIM_CH])
         - n_ignored
@@ -1021,6 +1024,7 @@ def _sidecar_json(
         ("EMGChannelCount", n_emgchan),
         ("MiscChannelCount", n_miscchan),
         ("TriggerChannelCount", n_stimchan),
+        ("EyetrackerChannelCount", n_eyechan),
     ]
 
     ch_info_ch_counts_nirs = [
