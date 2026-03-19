@@ -143,11 +143,37 @@ def _from_tsv(fname, dtypes=None):
         Keys are the column names, and values are the column data.
 
     """
+    import time  # avoid module-level import
+
     from .utils import warn  # avoid circular import
 
-    data = np.loadtxt(
-        fname, dtype=str, delimiter="\t", ndmin=2, comments=None, encoding="utf-8-sig"
-    )
+    # Retry with exponential backoff to handle parallel access on shared
+    # filesystems (e.g. HPC). Total wait is capped at 5 minutes.
+    delay = 0.1
+    max_total = 300.0
+    total_slept = 0.0
+    while True:
+        try:
+            data = np.loadtxt(
+                fname,
+                dtype=str,
+                delimiter="\t",
+                ndmin=2,
+                comments=None,
+                encoding="utf-8-sig",
+            )
+            break
+        except Exception:
+            if total_slept >= max_total:
+                raise
+            sleep_time = min(
+                delay * (1 + np.random.uniform(0, 0.1)),
+                max_total - total_slept,
+            )
+            time.sleep(sleep_time)
+            total_slept += sleep_time
+            delay *= 2
+
     column_names = data[0, :]
     info = data[1:, :]
     data_dict = OrderedDict()
@@ -184,12 +210,32 @@ def _to_tsv(data, fname):
         Path to the file being written.
 
     """
+    import time  # avoid module-level import
+
     n_rows = len(data[list(data.keys())[0]])
     output = _tsv_to_str(data, n_rows)
 
-    with open(fname, "w", encoding="utf-8-sig") as f:
-        f.write(output)
-        f.write("\n")
+    # Retry with exponential backoff to handle parallel access on shared
+    # filesystems (e.g. HPC). Total wait is capped at 5 minutes.
+    delay = 0.1
+    max_total = 300.0
+    total_slept = 0.0
+    while True:
+        try:
+            with open(fname, "w", encoding="utf-8-sig") as f:
+                f.write(output)
+                f.write("\n")
+            break
+        except OSError:
+            if total_slept >= max_total:
+                raise
+            sleep_time = min(
+                delay * (1 + np.random.uniform(0, 0.1)),
+                max_total - total_slept,
+            )
+            time.sleep(sleep_time)
+            total_slept += sleep_time
+            delay *= 2
 
 
 def _tsv_to_str(data, rows=5):
