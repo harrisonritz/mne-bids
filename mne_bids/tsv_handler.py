@@ -170,6 +170,7 @@ def _from_tsv(fname, dtypes=None):
                 delay * (1 + np.random.uniform(0, 0.1)),
                 max_total - total_slept,
             )
+            print('File is currently locked. Retrying in {:.1f} seconds...'.format(sleep_time))
             time.sleep(sleep_time)
             total_slept += sleep_time
             delay *= 2
