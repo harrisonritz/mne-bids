@@ -149,6 +149,10 @@ def _from_tsv(fname, dtypes=None):
 
     # Retry with exponential backoff to handle parallel access on shared
     # filesystems (e.g. HPC). Total wait is capped at 5 minutes.
+    # Guards against TWO race conditions:
+    #   1. File locked/unreadable → np.loadtxt raises an Exception
+    #   2. File caught mid-truncate → np.loadtxt succeeds but returns an
+    #      empty array (size 0) because the file has no content yet.
     delay = 0.1
     max_total = 300.0
     total_slept = 0.0
@@ -162,6 +166,13 @@ def _from_tsv(fname, dtypes=None):
                 comments=None,
                 encoding="utf-8-sig",
             )
+            # np.loadtxt does NOT raise on empty files — it returns a
+            # zero-size array and emits a UserWarning.  Treat this as a
+            # transient condition (another job is mid-write) and retry.
+            if data.size == 0:
+                raise IndexError(
+                    f"TSV file is transiently empty: '{fname}'"
+                )
             break
         except Exception:
             if total_slept >= max_total:
@@ -170,7 +181,11 @@ def _from_tsv(fname, dtypes=None):
                 delay * (1 + np.random.uniform(0, 0.1)),
                 max_total - total_slept,
             )
-            print('File is currently locked. Retrying in {:.1f} seconds...'.format(sleep_time))
+            print(
+                f'[_from_tsv] Transient read error on {fname} '
+                f'(slept {total_slept:.1f}/{max_total:.0f}s). '
+                f'Retrying in {sleep_time:.1f}s...'
+            )
             time.sleep(sleep_time)
             total_slept += sleep_time
             delay *= 2
